@@ -1,0 +1,6 @@
+app:
+  id: ${random.uuid}
+
+spring:
+  application:
+    name: hello-world-service

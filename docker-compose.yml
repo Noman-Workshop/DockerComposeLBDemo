@@ -1,0 +1,27 @@
+version: '3.9'
+
+
+services:
+  hello-world-service:
+    image: amazoncorretto:11
+    volumes:
+      - ./build/libs/hello-world-service.jar:/app/hello-world-service.jar
+    working_dir: /app
+    command: java -jar hello-world-service.jar
+    networks:
+      - hello-world-network
+    deploy:
+      mode: replicated
+      replicas: 3
+      endpoint_mode: dnsrr
+
+  simple-busybox:
+    image: busybox
+    command: tail -F /dev/null
+    networks:
+      - hello-world-network
+
+
+networks:
+  hello-world-network:
+    driver: bridge
