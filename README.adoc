@@ -1,0 +1,180 @@
+=== Load balancing using docker compose service name resolution among the replicated components
+
+=== Hello World Application Overview
+
+Each application gets a unique random id when bootstrapped
+[source,yaml]
+----
+app:
+  id: ${random.uuid}
+
+spring:
+  application:
+    name: hello-world-service
+----
+
+== REST Endpoint
+It exposes a REST endpoint that returns a message with the application id and logs the message to the console.
+
+[source,java]
+----
+@GetMapping
+public String hello() {
+    String message = "Hello World! from app id: " + appConfig.getId();
+
+    logger.info(message);
+    return message + "\n";
+}
+----
+
+=== Architecture Overview
+
+
+== Compose Specification
+[source,yaml]
+----
+version: '3.9'
+
+
+services:
+  hello-world-service:
+    image: amazoncorretto:11
+    volumes:
+      - ./build/libs/hello-world-service.jar:/app/hello-world-service.jar
+    working_dir: /app
+    command: java -jar hello-world-service.jar
+    networks:
+      - hello-world-network
+    deploy:
+      mode: replicated
+      replicas: 3
+      endpoint_mode: dnsrr
+
+networks:
+  hello-world-network:
+    driver: bridge
+
+----
+
+[plantuml,target=diagram-classes,format=svg]
+....
+@startuml
+
+package hello-world-network {
+    [hello-world-1]
+    [hello-world-2]
+    [hello-world-3]
+
+    ' docker bridge network
+
+    [bridge-router]
+
+    [hello-world-1] --> [bridge-router]
+    [hello-world-2] --> [bridge-router]
+    [hello-world-3] --> [bridge-router]
+
+    ' associate an ip address label to each container
+    [hello-world-1] .up.> [ip-172-18-0-2]
+    [hello-world-2] .up.> [ip-172-18-0-3]
+    [hello-world-3] .up.> [ip-172-18-0-4]
+
+}
+
+@enduml
+....
+
+== Consuming the REST endpoint
+We need a client inside the network to consume the API using service name and proof that the load balancing is working.
+We will use a very simple busybox container to do that.
+We will consume the API with wget directly from the command line.
+
+[source,yaml]
+----
+version: '3.9'
+
+
+services:
+  hello-world-service:
+    image: amazoncorretto:11
+    volumes:
+      - ./build/libs/hello-world-service.jar:/app/hello-world-service.jar
+    working_dir: /app
+    command: java -jar hello-world-service.jar
+    networks:
+      - hello-world-network
+    deploy:
+      mode: replicated
+      replicas: 3
+      endpoint_mode: dnsrr
+
+  simple-busybox:
+    image: busybox
+    command: tail -F /dev/null
+    networks:
+      - hello-world-network
+
+
+networks:
+  hello-world-network:
+    driver: bridge
+
+----
+
+[plantuml,target=diagram-classes,format=svg]
+....
+@startuml
+
+package hello-world-network {
+    [hello-world-1]
+    [hello-world-2]
+    [hello-world-3]
+
+    ' docker bridge network
+
+    [bridge-router]
+
+    [hello-world-1] --> [bridge-router]
+    [hello-world-2] --> [bridge-router]
+    [hello-world-3] --> [bridge-router]
+
+    ' busybox container
+    [busybox] --up-> [bridge-router]
+
+    ' associate an ip address label to each container
+    [hello-world-1] .up.> [ip-172-18-0-2]
+    [hello-world-2] .up.> [ip-172-18-0-3]
+    [hello-world-3] .up.> [ip-172-18-0-4]
+    [busybox] .down.> [ip-172-18-0-5]
+
+}
+
+@enduml
+....
+
+
+=== Running the demo
+
+[source,bash]
+----
+docker-compose -p lbdemo up
+----
+
+== Getting into the busybox container
+[source,bash]
+----
+docker exec -it lbdemo_simple-busybox-1 sh
+----
+
+== Consuming the API
+[source,bash]
+----
+wget -qO- http://hello-world-service:8080/
+----
+
+Here if you run the command multiple times you will see that the application id is changing, which means that the load balancing is working.
+
+== Shutdown the demo
+[source,bash]
+----
+docker-compose -p lbdemo down
+----
