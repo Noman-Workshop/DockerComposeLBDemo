@@ -2,7 +2,7 @@
 
 === Hello World Application Overview
 
-Each application gets a unique random id when bootstrapped
+Each application replica gets a unique random id when bootstrapped
 [source,yaml]
 ----
 app:
@@ -14,7 +14,7 @@ spring:
 ----
 
 == REST Endpoint
-It exposes a REST endpoint that returns a message with the application id and logs the message to the console.
+Application exposes a REST endpoint that returns a message with the application id and logs the message to the console.
 
 [source,java]
 ----
@@ -154,6 +154,8 @@ package hello-world-network {
 
 === Running the demo
 
+To build the application jar run the bootJar task
+
 [source,bash]
 ----
 docker-compose -p lbdemo up
@@ -171,7 +173,7 @@ docker exec -it lbdemo_simple-busybox-1 sh
 wget -qO- http://hello-world-service:8080/
 ----
 
-Here if you run the command multiple times you will see that the application id is changing, which means that the load balancing is working.
+Here if you run the command multiple times you will see that the application id is changing, which means that the load balancing is working. Also you can see the logs of the application in the docker compose console.
 
 == Shutdown the demo
 [source,bash]
